@@ -4,7 +4,7 @@
    숫자·라틴·기호 칸은 유지(코드가 번호로 찍음), 年月日 칸은 년월일 그림으로. 넘치는 줄은 포인터로 다시 채움."""
 import sys, os, re, json, struct, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import build as BD, ded_build as D, sf_ded as SD
+import build as BD, ded_build as D, sf_ded as SD, punct as PU
 sys.stdout.reconfigure(encoding='utf-8')
 NL = BD.N; FF, FE = 0xFFFF, 0xFFFE
 #          이름, 글꼴 파일, 글꼴 위치, 칸 수, 문자열 파일, 줄 폭
@@ -23,6 +23,7 @@ BY_OFF = {0x49E60: '2차 대전기 독소전을 재현한' + NL_ + '캠페인 �
           0x4A7F8: '대전략의 원점이라 해도 좋을 맵.' + NL_ + '아는 분은 꽤나 통달한 분이겠네요.',
           0x4A848: '뉴칼레도니아 섬의 수비군이 되어' + NL_ + '적에게서 아름다운 자연을 지켜라!',
           0x4A9D8: '세토나이카이를 무대로 한 맵.' + NL_ + '바다를 사이에 둔 전투를 체험합니다'}
+BY_OFF = {k_: PU.squeeze(v_) for k_, v_ in BY_OFF.items()}
 BASES = {'/TURNASC.BIN': 0x217000, '/GMSFONT.BIN': 0x6060000, '/KASOU': 0x6060000, '/GAMEOVER': 0x6060000}
 # 칸 고정(포인터 없음) 줄·턴 문장은 칸 안으로 줄인 표현(작전 디스크 전용)
 SHORT = {
@@ -44,6 +45,19 @@ SHORT = {
     '적장 만슈타인의 군이 남방에서\\l접근 중!\\l전면의 적을 조기 격파해 이에 대비하라.': '적장 만슈타인의 군이 남방에서\\l접근 중!\\l전면의 적을 조기 격파하라.',
     '프리피야트 강 남방에서\\l 양동 부대가 진격을 개시했습니다.': '프리피야트 강 남방에서\\l 양동 부대가 진격 개시.',
 }
+SHORT = {PU.squeeze(a_): PU.squeeze(b_) for a_, b_ in SHORT.items()}
+
+
+def wrap_par(v, W):
+    """문단(줄바꿈 코드)은 지키고 문단마다 낱말 단위로 W 칸에 채움."""
+    out = []
+    for par in v.split(NL):
+        cur = ''
+        for w in par.split(' '):
+            if cur and len(cur) + 1 + len(w) > W: out.append(cur); cur = w
+            else: cur = cur + ' ' + w if cur else w
+        out.append(cur)
+    return NL.join(out)
 
 
 def best_base(src, offs):
@@ -71,7 +85,7 @@ def patch(iso, ent, extra, log=print):
         for o, t in raw[nm]:
             k = SD.nz(t)
             if k in SKIP or k not in J: continue
-            v_ = SHORT.get(J[k], J[k])
+            v_ = PU.squeeze(J[k]); v_ = SHORT.get(v_, v_)
             if nm == '/GMSFONT.BIN' and o in BY_OFF: v_ = BY_OFF[o]
             if nm == '/TURNASC.BIN': v_ = v_.replace(NL + '  ', NL + ' ').replace(NL + ' ', NL)   # 들여쓰기 칸을 낱말 줄 자리로
             rows.append((o, t, v_))
@@ -112,7 +126,9 @@ def patch(iso, ent, extra, log=print):
         brk = None
         if nm == '/KASOU':                                  # 문장 줄바꿈 = 글꼴의 ？ 칸, 줄 폭 = 원문 최대
             brk = 1
-            W = max(len(x) for o, t, v in rows for x in re.split('[？?/]', t))
+            W = 18                                  # KASOU 0x79C: 열 18 넘으면 자동 줄바꿈, 번호 2·3·4(。、」)만 19칸째 허용
+            for c_, n_ in (('.', 2), (',', 3)):          # 。、 칸 = 한국어 . , (줄 끝 매달림 그대로)
+                fd[fb + (n_ + sh) * 128:fb + (n_ + sh) * 128 + 128] = BD.glyph(c_); keep[c_] = n_
         blank = 0
         for o, t, v in rows:
             for c in v.replace(NL, ''):
@@ -120,7 +136,7 @@ def patch(iso, ent, extra, log=print):
         for q_, v in nat:
             for c in v:
                 if c != ' ' and c not in keep and c not in need: need.append(c)
-        free = [i for i, c in enumerate(LL) if i - sh > 1 and i - sh not in keep.values()]
+        free = [i for i, c in enumerate(LL) if i - sh > (4 if nm == '/KASOU' else 1) and i - sh not in keep.values()]   # KASOU 2~4 = 매달림 부호 번호
         assert len(need) <= len(free), (nm, len(need), len(free))
         M = dict(keep)
         for c, i in zip(need, free):
@@ -129,7 +145,7 @@ def patch(iso, ent, extra, log=print):
 
         def enc(v):
             o_ = []
-            for q, part in enumerate(D.wrap(v, W).split(NL)):
+            for q, part in enumerate((wrap_par(v, W) if brk else D.wrap(v, W)).split(NL)):
                 if q: o_.append(sep)
                 o_ += [blank if c in ' 　' else M[c] for c in part]
             return o_

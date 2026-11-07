@@ -81,6 +81,7 @@ def wrap(s):
 
 
 def main():
+    import punct; punct.guard()
     iso = Iso(T1); ent = {f[0]: f for f in iso.walk()}
     rd = lambda n: iso.read(*ent[n][1:3])
     dt = bytearray(rd('/SAKUSEN/SAKU_DT.BIN'))

@@ -117,6 +117,7 @@ def gfx(iso, ent, extra, log=print):
 
 
 def main():
+    import punct; punct.guard()
     iso = Iso(T1); ent = {f[0]: f for f in iso.walk()}
     extra = {}
     dt, fonts = saku(iso, ent)
@@ -146,7 +147,8 @@ def main():
     extra['/GAME2.BIN'] = bytes(g_)
     # 작전 전용 그림: 제목 띠, 병기 타입 메뉴
     t_ = bytearray(extra.get('/DAI_TIT1.DC') or iso.read(*ent['/DAI_TIT1.DC'][1:3])); b_ = open('work/gfx/ft2/F_DAI_TIT1.bin', 'rb').read(); t_[0x200:0x200 + len(b_)] = b_; extra['/DAI_TIT1.DC'] = bytes(t_)
-    g2_ = bytearray(extra.get('/GMS2.BIN') or iso.read(*ent['/GMS2.BIN'][1:3])); b_ = open('work/gfx/ty2/GMS2_31A40.bin', 'rb').read(); g2_[0x31A40:0x31A40 + len(b_)] = b_; extra['/GMS2.BIN'] = bytes(g2_)
+    g2_ = bytearray(extra.get('/GMS2.BIN') or iso.read(*ent['/GMS2.BIN'][1:3])); b_ = open('work/gfx/ty2/GMS2_31A40.bin', 'rb').read(); g2_[0x31A40:0x31A40 + len(b_)] = b_
+    b_ = open('work/gfx/tysel/GMS2_37BE0.bin', 'rb').read(); assert len(b_) == 5 * 0xF00; g2_[0x37BE0:0x37BE0 + len(b_)] = b_; extra['/GMS2.BIN'] = bytes(g2_)   # 선택 줄 밝은 그림 5장
     # DAI_TXT 는 본편과 같은 파일
     extra['/DAI_TXT.DC'] = open('work/gfx/d4/DAI_TXT.bin', 'rb').read() + iso.read(*ent['/DAI_TXT.DC'][1:3])[os.path.getsize('work/gfx/d4/DAI_TXT.bin'):]
     print('바뀐 파일', len(extra))

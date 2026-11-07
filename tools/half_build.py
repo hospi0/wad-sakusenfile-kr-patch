@@ -71,6 +71,14 @@ def cells(tag, com, rom):
                 if v is None: miss[t] += 1
                 else: out.append(('/GAME2.BIN', o, 8, t, v))
             o += 12
+        # 저장 이름표(앞 글자 C·S + 10칸 + 00) 0x1D1A4~: 앞 글자는 그대로
+        o = 0x1D1A4
+        while o + 12 <= len(g2) and g2[o + 11] == 0 and all(1 <= x <= 0xAD for x in g2[o:o + 11]):
+            t = HS.dec(g2[o + 1:o + 11]); v = tr(t)
+            if HS.HASK.search(t):
+                if v is None: miss[t] += 1
+                else: out.append(('/GAME2.BIN', o + 1, 10, t, v))
+            o += 12
     # 지형 10칸: GAME2 앞쪽 짧은 표(자리표) + 뒤쪽 긴 표(GAME2·SHINHEI 사본)
     for g, t, tg, fn, oh, n in rows('small2_pos'):
         if g == 'G' and tg == tag:

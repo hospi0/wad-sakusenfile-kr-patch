@@ -28,9 +28,14 @@ rowmode = [int(np.bincount(src[r, 48:170]).argmax()) for r in range(142)]
 print('줄 최빈 밝기', [L(v) for v in rowmode])
 BANDS = [(int(a_), int(b_)) for a_, b_ in zip(sys.argv[2].split(',')[0::2], sys.argv[2].split(',')[1::2])] if len(sys.argv) > 2 else []
 TX = ['독일 타입', '일본 타입', '미국 타입', '소련 타입', '영국 타입']
+# 글자색은 5줄 모두 한 색(하스피 지시 2026-11-07) — 줄마다 고르던 것을 5줄 전체에서 한 번만
+if BANDS:
+    ALL = np.vstack([src[y0:y1, 43:160] for y0, y1 in BANDS]); LA = np.vectorize(L)(ALL)
+    ink = int(ALL.flat[LA.argmin()]); hi = int(ALL.flat[LA.argmax()]); print('글자', ink, L(ink), '밝은 테', hi, L(hi))
+    for y0, y1 in BANDS:
+        s_ = src[y0:y1, 43:160]; l_ = np.vectorize(L)(s_); print('  (예전 줄별)', int(s_.flat[l_.argmin()]), int(s_.flat[l_.argmax()]))
 for (y0, y1), t in zip(BANDS, TX):
     sub = a[y0:y1, 43:160]; bg = np.array([np.bincount(sub[r]).argmax() for r in range(sub.shape[0])])
-    Lv = np.vectorize(L)(sub); ink = int(sub.flat[Lv.argmin()]); hi = int(sub.flat[Lv.argmax()])
     for r in range(sub.shape[0]): sub[r, :] = bg[r]
     m = glyphs(t); h, w = m.shape; cx, cy = (117 - w) // 2, (y1 - y0 - h) // 2
     for yy in range(h):
